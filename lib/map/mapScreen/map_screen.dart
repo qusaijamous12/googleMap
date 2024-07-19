@@ -13,29 +13,37 @@ import 'package:task1/map/cubit/cubit.dart';
 import 'package:task1/map/cubit/state.dart';
 import 'package:task1/models/serachModel.dart';
 
-class MapScreen extends StatelessWidget {
+class MapScreen extends StatefulWidget {
 
-  Completer<GoogleMapController> mapController=Completer();
+  @override
+  State<MapScreen> createState() => _MapScreenState();
+}
+
+class _MapScreenState extends State<MapScreen> {
+
   Future<void> goToMyCurrentLocation(context)async{
-    final GoogleMapController controller=await mapController.future;
+    final GoogleMapController controller=await MapCubit.get(context).mapController.future;
     controller.animateCamera(CameraUpdate.newCameraPosition(MapCubit.get(context).myCameraPosition!));
 
   }
 
   Future<void> goToMyNewCurrentLocation(context)async{
-    final GoogleMapController controller=await mapController.future;
+    final GoogleMapController controller=await MapCubit.get(context).mapController.future;
+    if(MapCubit.get(context).myNewCameraPosition!=null)
     controller.animateCamera(CameraUpdate.newCameraPosition(MapCubit.get(context).myNewCameraPosition!));
+    else
+      print('mynewCameraPostion is null');
 
   }
 
   var floatingController=FloatingSearchBarController();
 
-  var textController=TextEditingController();
-
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<MapCubit,MapState>(
       listener: (context,MapState){
+        if(MapState is GetPlaceIdSuccessState)
+          goToMyNewCurrentLocation(context);
 
       },
       builder: (context,MapState){
@@ -52,37 +60,156 @@ class MapScreen extends StatelessWidget {
                         myLocationEnabled: true,
                         myLocationButtonEnabled: false,
                         onMapCreated: (GoogleMapController controller){
-                        mapController.complete(controller);
+                          MapCubit.get(context).mapController.complete(controller);
                         },
                         initialCameraPosition:cubit.myCameraPosition!,
-                       markers: MapCubit.get(context).marker,
-            
+                       markers: Set<Marker>.of(MapCubit.get(context).marker),
+                      polylines: MapCubit.get(context).placeDirections!=null?{
+                        Polyline(
+                          polylineId:  PolylineId('3'),
+                          color: Colors.black,
+                          width: 5,
+                          points:MapCubit.get(context).polyLinePoints
+                        ),
+                      }:{}
                     ),
                     fallback: (context)=>Center(child: CircularProgressIndicator())),
                 Padding(
                   padding: EdgeInsetsDirectional.only(
-                    top: 20
+                    top: 50,
+
                   ),
                   child: buildFloatingSearchBar(context),
+                ),
+                if(MapCubit.get(context).placeDirections!=null)
+                Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: Padding(
+                    padding: EdgeInsetsDirectional.only(
+                      start: 10,
+                      end: 10,
+                      top: 10,
+                      bottom: 15
+                    ),
+                    child: Row(
+                      children: [
+                      Container(
+                        alignment: AlignmentDirectional.centerStart,
+                        padding: EdgeInsetsDirectional.only(
+                          start: 5
+                        ),
+                        height: 40,
+                        width: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadiusDirectional.circular(10),
+                          border: Border.all(
+                            color: Colors.blue
+                          )
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.place_outlined,
+                              color: Colors.blue,
+                            ),
+                            SizedBox(
+                              width: 5,
+                            ),
+                            Text(
+                              textAlign: TextAlign.right,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              '${MapCubit.get(context).placeDirections!.totalDistance}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+
+                              ),
+                            ),
+                          ],
+                        ),
+                      )  ,
+                        Spacer(),
+                        Container(
+                          alignment: AlignmentDirectional.centerStart,
+                          padding: EdgeInsetsDirectional.only(
+                              start: 5
+                          ),
+                          height: 40,
+                          width: 100,
+                          decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadiusDirectional.circular(10),
+                              border: Border.all(
+                                  color: Colors.blue
+                              )
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.watch_later_outlined,
+                                color: Colors.blue,
+                              ),
+                              SizedBox(
+                                width: 5,
+                              ),
+                              Text(
+                                  textAlign: TextAlign.right,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  '${MapCubit.get(context).placeDirections!.totalDuration}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                            ],
+                          ),
+                        )  ,
+                      ],
+                    ),
+                  ),
                 ),
                 Align(
                   alignment: AlignmentDirectional.bottomStart,
                   child: Padding(
                     padding: const EdgeInsets.all(10.0),
-                    child: FloatingActionButton(
-                      backgroundColor: Colors.blue,
-                        onPressed: (){
-                        goToMyCurrentLocation(context);
-            
-                    },
-                      child: Icon(
-                        Icons.place,
-                        color: Colors.white,
-                      ),
+                    child: Row(
+                      children: [
+                        FloatingActionButton(
+                          backgroundColor: Colors.blue,
+                            onPressed: (){
+                            goToMyCurrentLocation(context);
+
+                        },
+                          child: Icon(
+                            Icons.place,
+                            color: Colors.white,
+                          ),
+                        ),
+                        SizedBox(
+                          width: 10,
+                        ),
+                        if(MapCubit.get(context).placeDirections!=null)
+                        FloatingActionButton(
+                          backgroundColor: Colors.blue,
+                          onPressed: (){
+                            MapCubit.get(context).RemoveMarkesAndClearAll();
+
+
+                          },
+                          child: Icon(
+                            Icons.cancel,
+                            color: Colors.white,
+                          ),
+                        ),
+
+
+
+                      ],
                     ),
                   ),
                 )
-            
+
               ],
             ),
           ),
@@ -91,10 +218,11 @@ class MapScreen extends StatelessWidget {
     );
 
   }
+
   Widget buildSerachItem(Predictions prediction,context)=>InkWell(
     onTap: (){
 
-      MapCubit.get(context).getPlaceId(placeId: prediction.placeId!,info: prediction.description!);
+      MapCubit.get(context).getPlaceId(placeId: prediction.placeId!,info1: prediction.description!);
       floatingController.close();
 
     },
@@ -119,18 +247,23 @@ class MapScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.place_outlined,
-                    color: Colors.black,
+                  CircleAvatar(
+                    backgroundColor: Colors.lightBlue.withOpacity(0.5),
+                    child: Icon(
+                      Icons.place_outlined,
+                      color: Colors.white,
+                    ),
                   ),
-                  Text(
-                    '${prediction.description}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 18,
-                        height: 1.5,
-                        fontWeight: FontWeight.bold
+                  Expanded(
+                    child: Text(
+                      '${prediction.description}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 18,
+                          height: 1.5,
+                          fontWeight: FontWeight.bold
+                      ),
                     ),
                   ),
                 ],
@@ -141,6 +274,7 @@ class MapScreen extends StatelessWidget {
       ],
     ),
   );
+
   Widget buildFloatingSearchBar(context) {
     final isPortrait = MediaQuery.of(context).orientation == Orientation.portrait;
     return FloatingSearchBar(
@@ -157,7 +291,7 @@ class MapScreen extends StatelessWidget {
       debounceDelay: const Duration(milliseconds: 500),
       onQueryChanged: (query) {
         MapCubit.get(context).serachPlaces(text: query);
-        goToMyNewCurrentLocation(context);
+        //goToMyNewCurrentLocation(context);
 
       },
       transition: CircularFloatingSearchBarTransition(),
@@ -200,5 +334,4 @@ class MapScreen extends StatelessWidget {
       },
     );
   }
-
 }

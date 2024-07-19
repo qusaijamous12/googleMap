@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:task1/helper/diohelper.dart';
@@ -8,22 +11,37 @@ import 'package:task1/map/cubit/state.dart';
 import 'package:task1/models/placesModel.dart';
 import 'package:task1/models/serachModel.dart';
 
+import '../../constant/constant.dart';
+import '../../models/directionModel.dart';
+
 class MapCubit extends Cubit<MapState> {
   MapCubit() :super(InitialMapState());
 
   static MapCubit get(context) => BlocProvider.of(context);
 
+  Completer<GoogleMapController> mapController=Completer();
+
   Position ?position;
   CameraPosition ?myCameraPosition;
   CameraPosition ?myNewCameraPosition;
+  late List<LatLng> polyLinePoints=[];
 
   dynamic lat;
   dynamic lng;
-  Set<Marker> marker={};
+  List<Marker> marker=[];
+
+  void getPolyLinesPoints(){
+    polyLinePoints=placeDirections!.polyLinePoints.map((e)=>LatLng(e.latitude, e.longitude)).toList();
+    emit(GetPolyLinePointsSuccessState());
+
+  }
 
   void getMyCurrentLocation() async {
     emit(LoadingGetMyLocationState());
     position = await Locatedhelper.determinePosition().then((value) {
+      position=value;
+      print(position!.latitude);
+      print(position!.longitude);
       myCameraPosition = CameraPosition(
         target: LatLng(value.latitude, value.longitude),
         zoom: 17,
@@ -43,7 +61,6 @@ class MapCubit extends Cubit<MapState> {
     required String text
   }) {
     emit(LoadingSerachPlaces());
-
     Diohelper.getData(
         path: 'https://maps.googleapis.com/maps/api/place/autocomplete/json',
         query: {
@@ -61,10 +78,10 @@ class MapCubit extends Cubit<MapState> {
   }
   PlaceId ?placeId;
 
-  void getPlaceId({
+  Future getPlaceId({
     required String placeId,
-    required String info
-}){
+    required String info1,
+})async{
     Diohelper.getData(
         path:'https://maps.googleapis.com/maps/api/place/details/json' ,
         query: {
@@ -75,24 +92,26 @@ class MapCubit extends Cubit<MapState> {
           this.placeId=PlaceId.fromJson(value.data);
           lat=this.placeId!.result!.geometry!.location!.lat;
           lng=this.placeId!.result!.geometry!.location!.lng;
-          myNewCameraPosition=CameraPosition(
-            target: LatLng(lat,lng),
-            zoom: 17,
-            tilt: 0,
-            bearing: 0,
-          );
           marker.add(
-            Marker(markerId: MarkerId('1'),
-              position: LatLng(lat,lng),
-              infoWindow: InfoWindow(
-                title: '${info}'
+            Marker(
+                markerId: MarkerId('1'),
+                position: LatLng(lat,lng),
+                infoWindow: InfoWindow(
+                    title: '${info1}'
 
-              )
+                ),
+              onTap: (){
+                  buildMyMarker();
+                  getPlaceDirection(destination: LatLng(lat, lng));
+              }
 
 
-            )
+            ),
+
           );
-          emit(GetPlaceIdSuccessState());
+          uploadMyNewCameraPostion(lat,lng);
+
+
 
     }).catchError((error){
       print(error.toString());
@@ -100,7 +119,82 @@ class MapCubit extends Cubit<MapState> {
     });
   }
 
+  void uploadMyNewCameraPostion(lat,lng){
+    myNewCameraPosition=CameraPosition(
+      target: LatLng(lat,lng),
+      zoom: 17,
+      tilt: 0,
+      bearing: 0,
+    );
+    emit(UploadMyNewCameraPosition());
+
+    emit(GetPlaceIdSuccessState());
+
+  }
+
+  Position ?location;
+
+  void buildMyMarker()async{
+    location=await Locatedhelper.determinePosition().then((value){
+      marker.add(
+          Marker(
+              markerId:MarkerId('2'),
+              position:LatLng(value.latitude,value.longitude),
+              infoWindow: InfoWindow(
+                  title: 'Your current Location'
+              ))
+      );
+      emit(BuildMyMarkerSunccessState());
+    }).catchError((error){
+      print(error.toString());
+      emit(BuildMyMarkerErrorState());
+    });
+
+
+  }
+
+  PlaceDirections ?placeDirections;
+  Position ?myLocation;
+
+  void getPlaceDirection({
+    required LatLng destination
+
+})async{
+    myLocation=await Locatedhelper.determinePosition().then((value){
+      Diohelper.getData(
+          path: directionBaseUrl,
+          query: {
+            'key':'${googleApi}',
+            'origin':'${value.latitude},${value.longitude}',
+            'destination':'${destination.latitude},${destination.longitude}'
+
+          }).then((value){
+        placeDirections=PlaceDirections.fromJson(value.data);
+         print(placeDirections!.totalDuration);
+         print(placeDirections!.totalDistance);
+        getPolyLinesPoints();
+
+        emit(GetPlaceDirectionSuccessState());
+
+      }).catchError((error){
+        print(error.toString());
+        emit(GetPlaceDiredtionErrorState());
+      });
+
+    });
+
+
+  }
+
+  void RemoveMarkesAndClearAll(){
+    marker.removeWhere((marker)=>marker.markerId.value=='1');
+    marker.removeWhere((marker)=>marker.markerId.value=='2');
+    placeDirections=null;
+    emit(RemoveAllState());
+  }
+
 
 
 }
+
 

@@ -15,7 +15,23 @@ class GetDataSerachPlacesSuccessState extends MapState{}
 class GetDataSerachPlacesErrorState extends MapState{}
 
 class GetPlaceIdSuccessState extends MapState{}
+
 class GetPlaceErrorState extends MapState{}
+
+class UploadMyNewCameraPosition extends MapState{}
+
+class BuildMyMarkerSunccessState extends MapState{}
+
+class BuildMyMarkerErrorState extends MapState{}
+
+class GetPlaceDirectionSuccessState extends MapState{}
+
+class GetPlaceDiredtionErrorState extends MapState{}
+
+class RemoveAllState extends MapState{}
+
+class GetPolyLinePointsSuccessState extends MapState{}
+
 
 
 

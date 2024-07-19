@@ -26,5 +26,6 @@ class Predictions {
   }
 }
 
-//https://developers.google.com/maps/documentation/places/web-service/autocomplete
-//https://developers.google.com/maps/documentation/places/web-service/details
+//https://developers.google.com/maps/documentation/places/web-service/autocomplete(i think for place id)
+//https://developers.google.com/maps/documentation/places/web-service/details(بعطيني ال dtails)
+//https://developers.google.com/maps/documentation/directions/overview (عشان الطريق)
